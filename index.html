@@ -1,14 +1,178 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Agritectum Roof Designer - Design sustainable roof layouts with instant performance metrics" />
-    <title>Agritectum Roof Designer</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Roof Designer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            min-width: 280px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px 5px 5px 0;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .zone-button {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        
+        .zone-button.active {
+            background: #ff6b6b;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 300px;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <h3 style="margin-top: 0; color: #333;">3D Roof Designer</h3>
+            
+            <div class="control-group">
+                <label>Roof Dimensions</label>
+                <input type="range" id="roofWidth" min="20" max="100" value="50" oninput="updateRoof()">
+                <small>Width: <span id="widthValue">50</span>m</small>
+                <input type="range" id="roofLength" min="20" max="100" value="40" oninput="updateRoof()">
+                <small>Length: <span id="lengthValue">40</span>m</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Roof Pitch</label>
+                <input type="range" id="roofPitch" min="0" max="45" value="15" oninput="updateRoof()">
+                <small>Angle: <span id="pitchValue">15</span>°</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Zone Tools</label>
+                <button class="zone-button" onclick="setZoneMode('solar')" id="solarBtn">Solar Panels</button>
+                <button class="zone-button" onclick="setZoneMode('green')" id="greenBtn">Green Roof</button>
+                <button class="zone-button" onclick="setZoneMode('water')" id="waterBtn">Water System</button>
+                <button class="zone-button" onclick="setZoneMode('social')" id="socialBtn">Social Space</button>
+            </div>
+            
+            <div class="control-group">
+                <button onclick="generateLayout()">Auto Generate</button>
+                <button onclick="clearZones()">Clear Zones</button>
+                <button onclick="exportModel()">Export 3D</button>
+            </div>
+        </div>
+        
+        <div id="info">
+            <strong>3D Roof Model</strong>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="totalArea">2000</div>
+                    <div class="metric-label">Total Area (m²)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="solarArea">800</div>
+                    <div class="metric-label">Solar (m²)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="greenArea">600</div>
+                    <div class="metric-label">Green (m²)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="energyOutput">1200</div>
+                    <div class="metric-label">kWh/year</div>
+                </div>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; opacity: 0.8;">
+                Click and drag to rotate • Scroll to zoom • Click roof to add zones
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="script.js"></script>
+</body>
 </html>
