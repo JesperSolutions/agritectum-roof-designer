@@ -46,10 +46,15 @@ const zoneConfigs = {
     social: { 
         color: 0x7b1fa2, 
         height: 0.05, 
-    }
-}
-let timeOfDay = 12;
+        name: 'Social Space',
+        efficiency: 0.90,
+        cost: 400,
+        maintenance: 0.01,
+        metallic: 0.0,
         roughness: 0.7
+    }
+};
+
 // Shared materials to reduce uniforms
 const sharedMaterials = {
     building: new THREE.MeshLambertMaterial({ color: 0xcccccc }),
@@ -410,120 +415,53 @@ function setupTimeControls() {
     controls.appendChild(timeControl);
 }
 
-function updateTimeOfDay(newTime) {
-    timeOfDay = parseFloat(newTime);
-    const hours = Math.floor(timeOfDay);
-    const minutes = Math.floor((timeOfDay - hours) * 60);
-    document.getElementById('timeValue').textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-    
-    // Update lighting
-    const sunLight = scene.getObjectByName('sunLight');
-    if (sunLight) updateSunPosition(sunLight);
-    
-    // Update sky
-    const sky = scene.getObjectByName('dynamicSky');
-    if (sky) sky.material.uniforms.time.value = timeOfDay;
-    
-    // Update fog
-    updateFogAndLighting();
-}
-
-function toggleWeather() {
-    weatherSystem.rainIntensity = weatherSystem.rainIntensity > 0 ? 0 : 1;
-    particleSystem.visible = weatherSystem.rainIntensity > 0;
-}
-
 function setupPostProcessing() {
-    // This would typically use EffectComposer for post-processing
-    // For now, we'll enhance the renderer settings
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    // Placeholder for post-processing setup
+    postProcessing = {};
 }
 
 function createRealisticEnvironment() {
-    // Create procedural ground with realistic materials
-    createProceduralGround();
+    // Enhanced ground with realistic materials
+    const groundGeometry = new THREE.PlaneGeometry(500, 500, 50, 50);
     
-    // Add realistic environmental elements
-    createDetailedTrees();
-    createCityBuildings();
-    createStreetElements();
-    createUrbanDetails();
-}
-
-function createProceduralGround() {
-    const groundGeometry = new THREE.PlaneGeometry(800, 800, 100, 100);
+    // Add height variation to ground
+    const positions = groundGeometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+        positions.setZ(i, Math.random() * 2 - 1);
+    }
+    positions.needsUpdate = true;
+    groundGeometry.computeVertexNormals();
     
-    // Create procedural grass material with shader
-    const groundMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            grassColor1: { value: new THREE.Color(0x4a7c59) },
-            grassColor2: { value: new THREE.Color(0x2d5016) },
-            dirtColor: { value: new THREE.Color(0x8B7355) },
-            time: { value: 0 },
-            windStrength: { value: 0.5 }
-        },
-        vertexShader: `
-            uniform float time;
-            uniform float windStrength;
-            varying vec2 vUv;
-            varying vec3 vPosition;
-            varying float vElevation;
-            
-            void main() {
-                vUv = uv;
-                vPosition = position;
-                
-                // Add procedural height variation
-                float elevation = sin(position.x * 0.01) * cos(position.z * 0.01) * 2.0;
-                elevation += sin(position.x * 0.05) * cos(position.z * 0.05) * 0.5;
-                vElevation = elevation;
-                
-                vec3 newPosition = position;
-                newPosition.y += elevation;
-                
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform vec3 grassColor1;
-            uniform vec3 grassColor2;
-            uniform vec3 dirtColor;
-            uniform float time;
-            varying vec2 vUv;
-            varying vec3 vPosition;
-            varying float vElevation;
-            
-            void main() {
-                // Create grass pattern
-                float grassPattern = sin(vPosition.x * 20.0) * sin(vPosition.z * 20.0);
-                grassPattern = smoothstep(-0.5, 0.5, grassPattern);
-                
-                // Mix grass colors based on elevation and pattern
-                vec3 grassColor = mix(grassColor1, grassColor2, grassPattern);
-                
-                // Add dirt patches in low areas
-                float dirtFactor = smoothstep(-1.0, 0.0, -vElevation);
-                vec3 finalColor = mix(grassColor, dirtColor, dirtFactor * 0.3);
-                
-                // Add subtle noise for realism
-                float noise = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-                finalColor += (noise - 0.5) * 0.1;
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `
+    const groundMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x3a5f3a,
+        roughness: 0.9
     });
     
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    ground.castShadow = false;
     scene.add(ground);
+    
+    // Create realistic trees
+    createRealisticTrees();
+    
+    // Create city buildings
+    createCityBuildings();
+    
+    // Create street elements
+    createStreetElements();
+    
+    // Create urban details
+    createUrbanDetails();
+    
+    // Create clouds
+    createClouds();
 }
 
-function createDetailedTrees() {
-    for (let i = 0; i < 25; i++) {
+function createRealisticTrees() {
+    // Create fewer buildings with shared materials
+    for (let i = 0; i < 8; i++) {
         const treeGroup = new THREE.Group();
         
         // Create realistic bark texture with shader
@@ -636,21 +574,20 @@ function createCityBuildings() {
         const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
         const buildingMaterial = new THREE.MeshStandardMaterial({ 
             color: new THREE.Color().setHSL(0.05 + Math.random() * 0.1, 0.2, 0.5 + Math.random() * 0.4),
-            roughness: 0.7,
-            metalness: 0.1
+            roughness: 0.7
         });
-        const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+        const building = new THREE.Mesh(buildingGeometry, sharedMaterials.building);
         building.position.y = height / 2;
         building.castShadow = true;
         building.receiveShadow = true;
         buildingGroup.add(building);
         
-        // Add detailed windows and architectural features
+        // Add enhanced building details
         createEnhancedBuildingDetails(buildingGroup, width, height, depth);
         
-        // Position buildings in a city-like pattern
-        const angle = (i / 20) * Math.PI * 2 + Math.PI / 8;
-        const distance = 120 + Math.random() * 150;
+        // Position buildings around the main building
+        const angle = (i / 20) * Math.PI * 2;
+        const distance = 120 + Math.random() * 80;
         buildingGroup.position.x = Math.cos(angle) * distance;
         buildingGroup.position.z = Math.sin(angle) * distance;
         
@@ -1263,7 +1200,7 @@ function createGabledRoof(width, length, pitch) {
         -width/2, 0, length/2,  0, roofHeight, -length/2,  -width/2, 0, -length/2,
         // Right slope
         width/2, 0, length/2,  width/2, 0, -length/2,  0, roofHeight, -length/2,
-        width/2, 0, length/2,  0, roofHeight, -length/2,  0, roofHeight, length/2,
+        width/2, 0, length/2,  0, roofHeight, -length/2,  0, roofHeight, length/2
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1295,7 +1232,7 @@ function createHipRoof(width, length, pitch) {
         // Back
         width/2, 0, -length/2,  -width/2, 0, -length/2,  0, roofHeight, 0,
         // Left
-        -width/2, 0, -length/2,  -width/2, 0, length/2,  0, roofHeight, 0,
+        -width/2, 0, -length/2,  -width/2, 0, length/2,  0, roofHeight, 0
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1323,7 +1260,7 @@ function createShedRoof(width, length, pitch) {
         -width/2, 0, length/2,  width/2, roofHeight, -length/2,  -width/2, 0, -length/2,
         // End triangles
         -width/2, 0, length/2,  -width/2, 0, -length/2,  -width/2, 0, 0,
-        width/2, roofHeight, length/2,  width/2, roofHeight, 0,  width/2, roofHeight, -length/2,
+        width/2, roofHeight, length/2,  width/2, roofHeight, 0,  width/2, roofHeight, -length/2
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1359,7 +1296,7 @@ function createGambrelRoof(width, length, pitch) {
         0, roofHeight, length/2,  width/4, midHeight, -length/2,  0, roofHeight, -length/2,
         // Lower right slope
         width/4, midHeight, length/2,  width/2, 0, length/2,  width/2, 0, -length/2,
-        width/4, midHeight, length/2,  width/2, 0, -length/2,  width/4, midHeight, -length/2,
+        width/4, midHeight, length/2,  width/2, 0, -length/2,  width/4, midHeight, -length/2
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1390,7 +1327,7 @@ function createMansardRoof(width, length, pitch) {
         width/3, roofHeight, length/2,  width/2, 0, -length/2,  width/3, roofHeight, -length/2,
         // Flat top
         -width/3, roofHeight, length/2,  width/3, roofHeight, length/2,  width/3, roofHeight, -length/2,
-        -width/3, roofHeight, length/2,  width/3, roofHeight, -length/2,  -width/3, roofHeight, -length/2,
+        -width/3, roofHeight, length/2,  width/3, roofHeight, -length/2,  -width/3, roofHeight, -length/2
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1417,7 +1354,7 @@ function createButterflyRoof(width, length, pitch) {
         -width/2, roofHeight, length/2,  0, 0, length/2,  0, 0, -length/2,
         -width/2, roofHeight, length/2,  0, 0, -length/2,  -width/2, roofHeight, -length/2,
         0, 0, length/2,  width/2, roofHeight, length/2,  width/2, roofHeight, -length/2,
-        0, 0, length/2,  width/2, roofHeight, -length/2,  0, 0, -length/2,
+        0, 0, length/2,  width/2, roofHeight, -length/2,  0, 0, -length/2
     ]);
     
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -1858,6 +1795,32 @@ function updateMetrics() {
 
 function updateRoof() {
     createBuilding();
+}
+
+function updateTimeOfDay(value) {
+    timeOfDay = parseFloat(value);
+    document.getElementById('timeValue').textContent = `${Math.floor(timeOfDay)}:${String(Math.floor((timeOfDay % 1) * 60)).padStart(2, '0')}`;
+    
+    // Update sun position
+    const sunLight = scene.children.find(child => child.name === 'sunLight');
+    if (sunLight) {
+        updateSunPosition(sunLight);
+    }
+    
+    // Update sky
+    const sky = scene.children.find(child => child.name === 'dynamicSky');
+    if (sky && sky.material.uniforms) {
+        sky.material.uniforms.time.value = timeOfDay;
+    }
+    
+    // Update fog and lighting
+    updateFogAndLighting();
+}
+
+function toggleWeather() {
+    if (particleSystem) {
+        particleSystem.visible = !particleSystem.visible;
+    }
 }
 
 function generateReport() {
