@@ -46,8 +46,15 @@ const zoneConfigs = {
     social: { 
         color: 0x7b1fa2, 
         height: 0.05, 
-let timeOfDay = 12;
+        name: 'Social Space',
+        efficiency: 0.90,
+        cost: 400,
+        maintenance: 0.01,
+        metallic: 0.0,
         roughness: 0.7
+    }
+};
+
 // Shared materials to reduce uniforms
 const sharedMaterials = {
     building: new THREE.MeshLambertMaterial({ color: 0xcccccc }),
@@ -131,6 +138,7 @@ const prefabConfigs = {
 function init() {
     // Scene setup with enhanced environment
     scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
     
     // Initialize texture loaders
     textureLoader = new THREE.TextureLoader();
@@ -166,8 +174,16 @@ function init() {
     controls.maxDistance = 300;
     controls.target.set(0, 10, 0);
     
-    // Advanced lighting setup
-    setupAdvancedLighting();
+    // Simple lighting system
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 1024;
+    directionalLight.shadow.mapSize.height = 1024;
+    scene.add(directionalLight);
     
     // Enhanced environment
     createRealisticEnvironment();
