@@ -1,45 +1,54 @@
-// Advanced 3D Roof Designer with AI Generation
+// Advanced 3D Roof Designer with Enhanced Building and Environment
 let scene, camera, renderer, controls;
-let roofMesh, roofGeometry;
+let buildingGroup, roofMesh, roofGeometry;
 let zones = [];
 let currentZoneMode = 'solar';
 let currentRoofType = 'gabled';
 let raycaster, mouse;
 let currentLocation = 'copenhagen';
+let textureLoader;
 
 // Enhanced zone configurations with more realistic properties
 const zoneConfigs = {
     solar: { 
-        color: 0xffa500, 
-        height: 0.3, 
+        color: 0x1a237e, 
+        height: 0.15, 
         name: 'Solar Panels',
         efficiency: 0.20,
         cost: 1500,
-        maintenance: 0.02
+        maintenance: 0.02,
+        metallic: 0.8,
+        roughness: 0.2
     },
     green: { 
-        color: 0x4CAF50, 
-        height: 0.2, 
+        color: 0x2e7d32, 
+        height: 0.3, 
         name: 'Green Roof',
         efficiency: 0.85,
         cost: 800,
-        maintenance: 0.05
+        maintenance: 0.05,
+        metallic: 0.0,
+        roughness: 0.9
     },
     water: { 
-        color: 0x2196F3, 
+        color: 0x0277bd, 
         height: 0.1, 
         name: 'Water System',
         efficiency: 0.70,
         cost: 600,
-        maintenance: 0.03
+        maintenance: 0.03,
+        metallic: 0.1,
+        roughness: 0.1
     },
     social: { 
-        color: 0x9C27B0, 
+        color: 0x7b1fa2, 
         height: 0.05, 
         name: 'Social Space',
         efficiency: 1.0,
         cost: 400,
-        maintenance: 0.01
+        maintenance: 0.01,
+        metallic: 0.0,
+        roughness: 0.7
     }
 };
 
@@ -59,6 +68,7 @@ const prefabConfigs = {
         width: 35,
         length: 25,
         pitch: 25,
+        buildingHeight: 8,
         zones: [
             { type: 'solar', percentage: 0.4, priority: 'south' },
             { type: 'green', percentage: 0.35, priority: 'north' },
@@ -71,6 +81,7 @@ const prefabConfigs = {
         width: 60,
         length: 40,
         pitch: 5,
+        buildingHeight: 15,
         zones: [
             { type: 'solar', percentage: 0.6, priority: 'center' },
             { type: 'green', percentage: 0.2, priority: 'perimeter' },
@@ -83,6 +94,7 @@ const prefabConfigs = {
         width: 80,
         length: 50,
         pitch: 10,
+        buildingHeight: 12,
         zones: [
             { type: 'solar', percentage: 0.7, priority: 'south' },
             { type: 'water', percentage: 0.2, priority: 'low' },
@@ -95,6 +107,7 @@ const prefabConfigs = {
         width: 45,
         length: 35,
         pitch: 20,
+        buildingHeight: 10,
         zones: [
             { type: 'solar', percentage: 0.35, priority: 'south' },
             { type: 'green', percentage: 0.4, priority: 'center' },
@@ -109,11 +122,11 @@ function init() {
     // Scene setup with enhanced environment
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 100, 500);
+    scene.fog = new THREE.Fog(0x87CEEB, 100, 800);
     
     // Camera with better positioning
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(40, 30, 40);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(60, 40, 60);
     
     // Enhanced renderer with better quality
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -121,7 +134,8 @@ function init() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('container').appendChild(renderer.domElement);
     
     // Enhanced controls
@@ -129,17 +143,21 @@ function init() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2.1;
-    controls.minDistance = 10;
-    controls.maxDistance = 200;
+    controls.minDistance = 20;
+    controls.maxDistance = 300;
+    controls.target.set(0, 10, 0);
+    
+    // Initialize texture loader
+    textureLoader = new THREE.TextureLoader();
     
     // Advanced lighting setup
     setupAdvancedLighting();
     
     // Enhanced environment
-    createEnvironment();
+    createRealisticEnvironment();
     
-    // Initial roof
-    createRoof();
+    // Initial building with roof
+    createBuilding();
     
     // Interaction setup
     raycaster = new THREE.Raycaster();
@@ -159,135 +177,327 @@ function init() {
 }
 
 function setupAdvancedLighting() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    // Ambient light for overall illumination
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
     scene.add(ambientLight);
     
-    // Main sun light
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    sunLight.position.set(50, 50, 25);
+    // Main sun light with realistic settings
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    sunLight.position.set(100, 100, 50);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 4096;
     sunLight.shadow.mapSize.height = 4096;
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 500;
-    sunLight.shadow.camera.left = -100;
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;
-    sunLight.shadow.camera.bottom = -100;
+    sunLight.shadow.camera.left = -150;
+    sunLight.shadow.camera.right = 150;
+    sunLight.shadow.camera.top = 150;
+    sunLight.shadow.camera.bottom = -150;
     sunLight.shadow.bias = -0.0001;
     scene.add(sunLight);
     
-    // Fill light
+    // Fill light for softer shadows
     const fillLight = new THREE.DirectionalLight(0x87CEEB, 0.3);
-    fillLight.position.set(-30, 20, -30);
+    fillLight.position.set(-50, 30, -50);
     scene.add(fillLight);
     
-    // Sky hemisphere light
-    const skyLight = new THREE.HemisphereLight(0x87CEEB, 0x362d1d, 0.4);
+    // Sky hemisphere light for realistic outdoor lighting
+    const skyLight = new THREE.HemisphereLight(0x87CEEB, 0x8B7355, 0.6);
     scene.add(skyLight);
+    
+    // Point lights for accent lighting
+    const accentLight1 = new THREE.PointLight(0xffffff, 0.5, 100);
+    accentLight1.position.set(30, 20, 30);
+    scene.add(accentLight1);
+    
+    const accentLight2 = new THREE.PointLight(0xffffff, 0.5, 100);
+    accentLight2.position.set(-30, 20, -30);
+    scene.add(accentLight2);
 }
 
-function createEnvironment() {
-    // Enhanced ground with texture
-    const groundGeometry = new THREE.PlaneGeometry(300, 300);
+function createRealisticEnvironment() {
+    // Enhanced ground with realistic grass texture
+    const groundGeometry = new THREE.PlaneGeometry(500, 500, 50, 50);
+    
+    // Create procedural grass-like material
     const groundMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x7cb342,
-        transparent: true,
-        opacity: 0.8
+        color: 0x4a7c59,
+        transparent: false
     });
+    
+    // Add some vertex displacement for natural ground variation
+    const positions = groundGeometry.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+        positions.setZ(i, Math.random() * 0.5);
+    }
+    groundGeometry.attributes.position.needsUpdate = true;
+    groundGeometry.computeVertexNormals();
+    
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
     
-    // Add some environmental elements
-    createTrees();
-    createBuildings();
-    createSkybox();
+    // Add realistic environmental elements
+    createDetailedTrees();
+    createCityBuildings();
+    createStreetElements();
+    createRealisticSkybox();
 }
 
-function createTrees() {
-    for (let i = 0; i < 8; i++) {
+function createDetailedTrees() {
+    for (let i = 0; i < 15; i++) {
         const treeGroup = new THREE.Group();
         
-        // Trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.8, 8);
-        const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+        // Enhanced trunk with texture-like material
+        const trunkGeometry = new THREE.CylinderGeometry(0.8, 1.2, 12, 8);
+        const trunkMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x4a3728,
+            roughness: 0.9
+        });
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = 4;
+        trunk.position.y = 6;
         trunk.castShadow = true;
         treeGroup.add(trunk);
         
-        // Foliage
-        const foliageGeometry = new THREE.SphereGeometry(4, 8, 6);
-        const foliageMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
-        const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-        foliage.position.y = 10;
-        foliage.castShadow = true;
-        treeGroup.add(foliage);
+        // Multiple foliage layers for realistic appearance
+        const foliageColors = [0x2d5016, 0x3a6b1c, 0x4a7c22];
+        for (let j = 0; j < 3; j++) {
+            const foliageGeometry = new THREE.SphereGeometry(4 + j, 12, 8);
+            const foliageMaterial = new THREE.MeshLambertMaterial({ 
+                color: foliageColors[j],
+                transparent: true,
+                opacity: 0.8 - j * 0.1
+            });
+            const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+            foliage.position.y = 12 + j * 2;
+            foliage.position.x = (Math.random() - 0.5) * 2;
+            foliage.position.z = (Math.random() - 0.5) * 2;
+            foliage.castShadow = true;
+            treeGroup.add(foliage);
+        }
         
-        // Random positioning
-        const angle = (i / 8) * Math.PI * 2;
-        const distance = 80 + Math.random() * 40;
+        // Random positioning around the scene
+        const angle = (i / 15) * Math.PI * 2 + Math.random() * 0.5;
+        const distance = 100 + Math.random() * 80;
         treeGroup.position.x = Math.cos(angle) * distance;
         treeGroup.position.z = Math.sin(angle) * distance;
+        treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
         
         scene.add(treeGroup);
     }
 }
 
-function createBuildings() {
-    for (let i = 0; i < 5; i++) {
-        const buildingGeometry = new THREE.BoxGeometry(
-            10 + Math.random() * 15,
-            15 + Math.random() * 20,
-            8 + Math.random() * 12
-        );
+function createCityBuildings() {
+    for (let i = 0; i < 12; i++) {
+        const buildingGroup = new THREE.Group();
+        
+        // Varied building dimensions
+        const width = 15 + Math.random() * 25;
+        const height = 20 + Math.random() * 40;
+        const depth = 12 + Math.random() * 20;
+        
+        // Main building structure
+        const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
         const buildingMaterial = new THREE.MeshLambertMaterial({ 
-            color: new THREE.Color().setHSL(0.1, 0.2, 0.6 + Math.random() * 0.2)
+            color: new THREE.Color().setHSL(0.1, 0.1, 0.6 + Math.random() * 0.3)
         });
         const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
-        
-        const angle = (i / 5) * Math.PI * 2 + Math.PI / 4;
-        const distance = 120 + Math.random() * 50;
-        building.position.x = Math.cos(angle) * distance;
-        building.position.z = Math.sin(angle) * distance;
-        building.position.y = building.geometry.parameters.height / 2;
-        
+        building.position.y = height / 2;
         building.castShadow = true;
         building.receiveShadow = true;
-        scene.add(building);
+        buildingGroup.add(building);
+        
+        // Add windows
+        createBuildingWindows(buildingGroup, width, height, depth);
+        
+        // Position buildings in a city-like pattern
+        const angle = (i / 12) * Math.PI * 2 + Math.PI / 6;
+        const distance = 150 + Math.random() * 100;
+        buildingGroup.position.x = Math.cos(angle) * distance;
+        buildingGroup.position.z = Math.sin(angle) * distance;
+        
+        scene.add(buildingGroup);
     }
 }
 
-function createSkybox() {
-    const skyGeometry = new THREE.SphereGeometry(400, 32, 32);
-    const skyMaterial = new THREE.MeshBasicMaterial({
+function createBuildingWindows(buildingGroup, width, height, depth) {
+    const windowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x87CEEB,
-        side: THREE.BackSide,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.7
     });
+    
+    // Front and back windows
+    for (let floor = 1; floor < height / 4; floor++) {
+        for (let col = 0; col < width / 4; col++) {
+            if (Math.random() > 0.3) { // Some windows are lit
+                const windowGeometry = new THREE.PlaneGeometry(2, 2);
+                const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+                window1.position.set(
+                    -width/2 + col * 4 + 2,
+                    floor * 4,
+                    depth/2 + 0.1
+                );
+                buildingGroup.add(window1);
+                
+                const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
+                window2.position.set(
+                    -width/2 + col * 4 + 2,
+                    floor * 4,
+                    -depth/2 - 0.1
+                );
+                window2.rotation.y = Math.PI;
+                buildingGroup.add(window2);
+            }
+        }
+    }
+}
+
+function createStreetElements() {
+    // Street lamps
+    for (let i = 0; i < 8; i++) {
+        const lampGroup = new THREE.Group();
+        
+        // Lamp post
+        const postGeometry = new THREE.CylinderGeometry(0.2, 0.2, 8);
+        const postMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const post = new THREE.Mesh(postGeometry, postMaterial);
+        post.position.y = 4;
+        post.castShadow = true;
+        lampGroup.add(post);
+        
+        // Lamp head
+        const headGeometry = new THREE.SphereGeometry(1, 8, 6);
+        const headMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffffaa,
+            transparent: true,
+            opacity: 0.8
+        });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.y = 8.5;
+        lampGroup.add(head);
+        
+        // Position along paths
+        const angle = (i / 8) * Math.PI * 2;
+        const distance = 80;
+        lampGroup.position.x = Math.cos(angle) * distance;
+        lampGroup.position.z = Math.sin(angle) * distance;
+        
+        scene.add(lampGroup);
+    }
+    
+    // Pathways
+    const pathGeometry = new THREE.PlaneGeometry(200, 4);
+    const pathMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+    
+    const path1 = new THREE.Mesh(pathGeometry, pathMaterial);
+    path1.rotation.x = -Math.PI / 2;
+    path1.position.y = 0.1;
+    path1.receiveShadow = true;
+    scene.add(path1);
+    
+    const path2 = new THREE.Mesh(pathGeometry, pathMaterial);
+    path2.rotation.x = -Math.PI / 2;
+    path2.rotation.z = Math.PI / 2;
+    path2.position.y = 0.1;
+    path2.receiveShadow = true;
+    scene.add(path2);
+}
+
+function createRealisticSkybox() {
+    // Enhanced sky with gradient
+    const skyGeometry = new THREE.SphereGeometry(800, 32, 32);
+    
+    // Create sky gradient material
+    const skyMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            topColor: { value: new THREE.Color(0x0077ff) },
+            bottomColor: { value: new THREE.Color(0xffffff) },
+            offset: { value: 33 },
+            exponent: { value: 0.6 }
+        },
+        vertexShader: `
+            varying vec3 vWorldPosition;
+            void main() {
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPosition.xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 topColor;
+            uniform vec3 bottomColor;
+            uniform float offset;
+            uniform float exponent;
+            varying vec3 vWorldPosition;
+            void main() {
+                float h = normalize(vWorldPosition + offset).y;
+                gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+            }
+        `,
+        side: THREE.BackSide
+    });
+    
     const sky = new THREE.Mesh(skyGeometry, skyMaterial);
     scene.add(sky);
+    
+    // Add clouds
+    createClouds();
 }
 
-function createRoof() {
-    // Remove existing roof
-    if (roofMesh) {
-        scene.remove(roofMesh);
+function createClouds() {
+    const cloudGroup = new THREE.Group();
+    
+    for (let i = 0; i < 20; i++) {
+        const cloudGeometry = new THREE.SphereGeometry(10 + Math.random() * 10, 8, 6);
+        const cloudMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6 + Math.random() * 0.3
+        });
+        const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        
+        cloud.position.set(
+            (Math.random() - 0.5) * 400,
+            50 + Math.random() * 30,
+            (Math.random() - 0.5) * 400
+        );
+        
+        cloud.scale.setScalar(0.5 + Math.random() * 0.5);
+        cloudGroup.add(cloud);
     }
+    
+    scene.add(cloudGroup);
+}
+
+function createBuilding() {
+    // Remove existing building
+    if (buildingGroup) {
+        scene.remove(buildingGroup);
+    }
+    
+    buildingGroup = new THREE.Group();
     
     const width = parseFloat(document.getElementById('roofWidth').value);
     const length = parseFloat(document.getElementById('roofLength').value);
     const pitch = parseFloat(document.getElementById('roofPitch').value);
     const roofType = document.getElementById('roofType').value;
     
+    // Get building height from current prefab or default
+    let buildingHeight = 8;
+    const currentPrefab = Object.values(prefabConfigs).find(config => config.roofType === roofType);
+    if (currentPrefab) {
+        buildingHeight = currentPrefab.buildingHeight;
+    }
+    
     // Update display values
     document.getElementById('widthValue').textContent = width;
     document.getElementById('lengthValue').textContent = length;
     document.getElementById('pitchValue').textContent = pitch;
+    
+    // Create realistic building base
+    createBuildingBase(width, length, buildingHeight);
     
     // Create roof based on type
     switch(roofType) {
@@ -316,8 +526,105 @@ function createRoof() {
             roofMesh = createGabledRoof(width, length, pitch);
     }
     
-    scene.add(roofMesh);
+    roofMesh.position.y = buildingHeight;
+    buildingGroup.add(roofMesh);
+    
+    scene.add(buildingGroup);
     updateMetrics();
+}
+
+function createBuildingBase(width, length, height) {
+    // Main building structure with realistic materials
+    const buildingGeometry = new THREE.BoxGeometry(width, height, length);
+    const buildingMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0xd4c5b0,
+        roughness: 0.8
+    });
+    
+    const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial);
+    buildingMesh.position.y = height / 2;
+    buildingMesh.castShadow = true;
+    buildingMesh.receiveShadow = true;
+    buildingGroup.add(buildingMesh);
+    
+    // Add building details
+    createBuildingDetails(width, length, height);
+}
+
+function createBuildingDetails(width, length, height) {
+    // Windows
+    const windowMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x4a90e2,
+        transparent: true,
+        opacity: 0.7
+    });
+    
+    // Front and back facades
+    const windowsPerRow = Math.floor(width / 4);
+    const floors = Math.floor(height / 3);
+    
+    for (let floor = 0; floor < floors; floor++) {
+        for (let col = 0; col < windowsPerRow; col++) {
+            if (Math.random() > 0.2) { // 80% chance of window
+                // Front windows
+                const windowGeometry = new THREE.PlaneGeometry(2, 2);
+                const frontWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+                frontWindow.position.set(
+                    -width/2 + (col + 0.5) * (width / windowsPerRow),
+                    (floor + 0.5) * (height / floors),
+                    length/2 + 0.1
+                );
+                buildingGroup.add(frontWindow);
+                
+                // Back windows
+                const backWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+                backWindow.position.set(
+                    -width/2 + (col + 0.5) * (width / windowsPerRow),
+                    (floor + 0.5) * (height / floors),
+                    -length/2 - 0.1
+                );
+                backWindow.rotation.y = Math.PI;
+                buildingGroup.add(backWindow);
+            }
+        }
+    }
+    
+    // Side windows
+    const sideWindowsPerRow = Math.floor(length / 4);
+    for (let floor = 0; floor < floors; floor++) {
+        for (let col = 0; col < sideWindowsPerRow; col++) {
+            if (Math.random() > 0.3) {
+                const windowGeometry = new THREE.PlaneGeometry(2, 2);
+                
+                // Left side
+                const leftWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+                leftWindow.position.set(
+                    -width/2 - 0.1,
+                    (floor + 0.5) * (height / floors),
+                    -length/2 + (col + 0.5) * (length / sideWindowsPerRow)
+                );
+                leftWindow.rotation.y = Math.PI / 2;
+                buildingGroup.add(leftWindow);
+                
+                // Right side
+                const rightWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+                rightWindow.position.set(
+                    width/2 + 0.1,
+                    (floor + 0.5) * (height / floors),
+                    -length/2 + (col + 0.5) * (length / sideWindowsPerRow)
+                );
+                rightWindow.rotation.y = -Math.PI / 2;
+                buildingGroup.add(rightWindow);
+            }
+        }
+    }
+    
+    // Entrance door
+    const doorGeometry = new THREE.PlaneGeometry(3, 4);
+    const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    door.position.set(0, 2, length/2 + 0.05);
+    buildingGroup.add(door);
 }
 
 function createGabledRoof(width, length, pitch) {
@@ -340,9 +647,11 @@ function createGabledRoof(width, length, pitch) {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.computeVertexNormals();
     
+    // Enhanced roof material with realistic appearance
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -372,7 +681,8 @@ function createHipRoof(width, length, pitch) {
     
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -399,7 +709,8 @@ function createShedRoof(width, length, pitch) {
     
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -434,7 +745,8 @@ function createGambrelRoof(width, length, pitch) {
     
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -464,7 +776,8 @@ function createMansardRoof(width, length, pitch) {
     
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -490,7 +803,8 @@ function createButterflyRoof(width, length, pitch) {
     
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x8B4513,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.8
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -503,7 +817,8 @@ function createFlatRoof(width, length) {
     const geometry = new THREE.PlaneGeometry(width, length);
     const material = new THREE.MeshLambertMaterial({ 
         color: 0x696969,
-        side: THREE.DoubleSide 
+        side: THREE.DoubleSide,
+        roughness: 0.9
     });
     
     const mesh = new THREE.Mesh(geometry, material);
@@ -516,7 +831,7 @@ function createFlatRoof(width, length) {
 
 function changeRoofType() {
     currentRoofType = document.getElementById('roofType').value;
-    createRoof();
+    createBuilding();
 }
 
 function updateClimate() {
@@ -538,8 +853,8 @@ function loadPrefab(type) {
     document.getElementById('roofLength').value = config.length;
     document.getElementById('roofPitch').value = config.pitch;
     
-    // Update roof
-    createRoof();
+    // Update building
+    createBuilding();
     
     // Clear existing zones
     clearZones();
@@ -704,8 +1019,8 @@ function optimizeLayout() {
         // Try small adjustments
         const testZones = zones.map(zone => {
             const newZone = {...zone};
-            newZone.x += (Math.random() - 0.5) * 4; // Small position adjustments
-            newZone.z += (Math.random() - 0.5) * 4;
+            newZone.position.x += (Math.random() - 0.5) * 4; // Small position adjustments
+            newZone.position.z += (Math.random() - 0.5) * 4;
             return newZone;
         });
         
@@ -725,7 +1040,7 @@ function optimizeLayout() {
     // Apply best layout
     clearZones();
     bestLayout.forEach(zone => {
-        addZone(zone.x, zone.z, zone.type);
+        addZone(zone.position.x, zone.position.z, zone.type);
     });
     
     alert(`Layout optimized! Score improved to ${bestScore.toFixed(2)}`);
@@ -768,7 +1083,9 @@ function onMouseClick(event) {
     
     if (intersects.length > 0) {
         const point = intersects[0].point;
-        addZone(point.x, point.z, currentZoneMode);
+        // Convert from world coordinates to roof-relative coordinates
+        const roofY = buildingGroup ? parseFloat(document.getElementById('roofWidth').value) * 0.1 : 8;
+        addZone(point.x, point.z - roofY, currentZoneMode);
     }
 }
 
@@ -776,19 +1093,27 @@ function addZone(x, z, type) {
     const config = zoneConfigs[type];
     const size = 3 + Math.random() * 4; // Random size between 3-7m
     
-    // Create enhanced zone geometry
+    // Create enhanced zone geometry with realistic materials
     const zoneGeometry = new THREE.BoxGeometry(size, config.height, size);
     const zoneMaterial = new THREE.MeshLambertMaterial({ 
         color: config.color,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.9,
+        roughness: config.roughness,
+        metalness: config.metallic
     });
     
     const zoneMesh = new THREE.Mesh(zoneGeometry, zoneMaterial);
-    zoneMesh.position.set(x, config.height / 2, z);
-    zoneMesh.castShadow = true;
     
-    // Add zone label
+    // Position relative to roof
+    const buildingHeight = buildingGroup ? 
+        Object.values(prefabConfigs).find(c => c.roofType === currentRoofType)?.buildingHeight || 8 : 8;
+    
+    zoneMesh.position.set(x, buildingHeight + config.height / 2, z);
+    zoneMesh.castShadow = true;
+    zoneMesh.receiveShadow = true;
+    
+    // Add zone label with better visibility
     const labelGeometry = new THREE.PlaneGeometry(size * 0.8, 1);
     const labelMaterial = new THREE.MeshBasicMaterial({
         color: 0xffffff,
@@ -796,8 +1121,7 @@ function addZone(x, z, type) {
         opacity: 0.9
     });
     const labelMesh = new THREE.Mesh(labelGeometry, labelMaterial);
-    labelMesh.position.set(x, config.height + 0.5, z);
-    labelMesh.lookAt(camera.position);
+    labelMesh.position.set(x, buildingHeight + config.height + 1, z);
     
     // Store zone data with enhanced properties
     const zone = {
@@ -911,7 +1235,7 @@ function updateMetrics() {
 }
 
 function updateRoof() {
-    createRoof();
+    createBuilding();
 }
 
 function generateReport() {
@@ -925,7 +1249,7 @@ ADVANCED 3D ROOF ANALYSIS REPORT
 Location: ${currentLocation.charAt(0).toUpperCase() + currentLocation.slice(1)}
 Climate: ${climate.solar} kWh/m²/yr solar, ${climate.rainfall}mm rainfall
 
-Roof Specifications:
+Building Specifications:
 - Type: ${document.getElementById('roofType').value}
 - Dimensions: ${document.getElementById('roofWidth').value}m × ${document.getElementById('roofLength').value}m
 - Pitch: ${document.getElementById('roofPitch').value}°
@@ -982,7 +1306,7 @@ function exportModel() {
     
     if (choice && choice >= 1 && choice <= 5) {
         const format = exportOptions[choice-1].split(' - ')[0];
-        alert(`Exporting as ${format}...\n\nThis would generate a ${format} file with:\n• Complete 3D roof geometry\n• Zone placement data\n• Material properties\n• Performance metrics\n• Analysis results`);
+        alert(`Exporting as ${format}...\n\nThis would generate a ${format} file with:\n• Complete 3D building geometry\n• Realistic materials and textures\n• Zone placement data\n• Performance metrics\n• Analysis results`);
     }
 }
 
