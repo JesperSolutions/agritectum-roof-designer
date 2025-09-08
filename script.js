@@ -46,13 +46,20 @@ const zoneConfigs = {
     social: { 
         color: 0x7b1fa2, 
         height: 0.05, 
-        name: 'Social Space',
-        efficiency: 1.0,
-        cost: 400,
-        maintenance: 0.01,
-        metallic: 0.0,
+let timeOfDay = 12;
         roughness: 0.7
-    }
+// Shared materials to reduce uniforms
+const sharedMaterials = {
+    building: new THREE.MeshLambertMaterial({ color: 0xcccccc }),
+    window: new THREE.MeshLambertMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.7 }),
+    roof: new THREE.MeshLambertMaterial({ color: 0x8b4513 }),
+    ground: new THREE.MeshLambertMaterial({ color: 0x228b22 }),
+    tree: new THREE.MeshLambertMaterial({ color: 0x8b4513 }),
+    foliage: new THREE.MeshLambertMaterial({ color: 0x228b22 }),
+    solar: new THREE.MeshLambertMaterial({ color: 0x1a1a2e }),
+    green: new THREE.MeshLambertMaterial({ color: 0x228b22 }),
+    water: new THREE.MeshLambertMaterial({ color: 0x4169e1 }),
+    social: new THREE.MeshLambertMaterial({ color: 0x9932cc })
 };
 
 // Climate data for different locations
