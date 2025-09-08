@@ -1,16 +1,8 @@
-{
-  "dependencies": {
-    "clsx": "^2.1.1",
-    "firebase": "^12.2.1",
-    "framer-motion": "^12.23.12",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.2",
-    "konva": "^9.3.22",
-    "lucide-react": "^0.542.0",
-    "react-konva": "^19.0.7",
-    "recharts": "^3.1.2",
-    "tailwind-merge": "^3.3.1",
-    "turf": "^3.0.14",
-    "zustand": "^5.0.8"
-  }
-}
+@@ .. @@
+   "scripts": {
+     "dev": "vite",
+     "build": "tsc && vite build",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+   },

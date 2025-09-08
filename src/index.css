@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .zone-green {
+    @apply bg-green-500/20 border-green-600 text-green-700;
+  }
+  .zone-solar {
+    @apply bg-solar-500/20 border-solar-600 text-solar-700;
+  }
+  .zone-water {
+    @apply bg-water-500/20 border-water-600 text-water-700;
+  }
+  .zone-social {
+    @apply bg-social-500/20 border-social-600 text-social-700;
+  }
+}
