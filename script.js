@@ -46,6 +46,8 @@ const zoneConfigs = {
     social: { 
         color: 0x7b1fa2, 
         height: 0.05, 
+    }
+}
 let timeOfDay = 12;
         roughness: 0.7
 // Shared materials to reduce uniforms
@@ -408,9 +410,120 @@ function setupTimeControls() {
     controls.appendChild(timeControl);
 }
 
+function updateTimeOfDay(newTime) {
+    timeOfDay = parseFloat(newTime);
+    const hours = Math.floor(timeOfDay);
+    const minutes = Math.floor((timeOfDay - hours) * 60);
+    document.getElementById('timeValue').textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     
-    // Create fewer buildings with shared materials
-    for (let i = 0; i < 8; i++) {
+    // Update lighting
+    const sunLight = scene.getObjectByName('sunLight');
+    if (sunLight) updateSunPosition(sunLight);
+    
+    // Update sky
+    const sky = scene.getObjectByName('dynamicSky');
+    if (sky) sky.material.uniforms.time.value = timeOfDay;
+    
+    // Update fog
+    updateFogAndLighting();
+}
+
+function toggleWeather() {
+    weatherSystem.rainIntensity = weatherSystem.rainIntensity > 0 ? 0 : 1;
+    particleSystem.visible = weatherSystem.rainIntensity > 0;
+}
+
+function setupPostProcessing() {
+    // This would typically use EffectComposer for post-processing
+    // For now, we'll enhance the renderer settings
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+}
+
+function createRealisticEnvironment() {
+    // Create procedural ground with realistic materials
+    createProceduralGround();
+    
+    // Add realistic environmental elements
+    createDetailedTrees();
+    createCityBuildings();
+    createStreetElements();
+    createUrbanDetails();
+}
+
+function createProceduralGround() {
+    const groundGeometry = new THREE.PlaneGeometry(800, 800, 100, 100);
+    
+    // Create procedural grass material with shader
+    const groundMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            grassColor1: { value: new THREE.Color(0x4a7c59) },
+            grassColor2: { value: new THREE.Color(0x2d5016) },
+            dirtColor: { value: new THREE.Color(0x8B7355) },
+            time: { value: 0 },
+            windStrength: { value: 0.5 }
+        },
+        vertexShader: `
+            uniform float time;
+            uniform float windStrength;
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying float vElevation;
+            
+            void main() {
+                vUv = uv;
+                vPosition = position;
+                
+                // Add procedural height variation
+                float elevation = sin(position.x * 0.01) * cos(position.z * 0.01) * 2.0;
+                elevation += sin(position.x * 0.05) * cos(position.z * 0.05) * 0.5;
+                vElevation = elevation;
+                
+                vec3 newPosition = position;
+                newPosition.y += elevation;
+                
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 grassColor1;
+            uniform vec3 grassColor2;
+            uniform vec3 dirtColor;
+            uniform float time;
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying float vElevation;
+            
+            void main() {
+                // Create grass pattern
+                float grassPattern = sin(vPosition.x * 20.0) * sin(vPosition.z * 20.0);
+                grassPattern = smoothstep(-0.5, 0.5, grassPattern);
+                
+                // Mix grass colors based on elevation and pattern
+                vec3 grassColor = mix(grassColor1, grassColor2, grassPattern);
+                
+                // Add dirt patches in low areas
+                float dirtFactor = smoothstep(-1.0, 0.0, -vElevation);
+                vec3 finalColor = mix(grassColor, dirtColor, dirtFactor * 0.3);
+                
+                // Add subtle noise for realism
+                float noise = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
+                finalColor += (noise - 0.5) * 0.1;
+                
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `
+    });
+    
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+}
+
+function createDetailedTrees() {
+    for (let i = 0; i < 25; i++) {
         const treeGroup = new THREE.Group();
         
         // Create realistic bark texture with shader
@@ -524,12 +637,26 @@ function createCityBuildings() {
         const buildingMaterial = new THREE.MeshStandardMaterial({ 
             color: new THREE.Color().setHSL(0.05 + Math.random() * 0.1, 0.2, 0.5 + Math.random() * 0.4),
             roughness: 0.7,
+            metalness: 0.1
         });
-        const building = new THREE.Mesh(buildingGeometry, sharedMaterials.building);
+        const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
         building.position.y = height / 2;
         building.castShadow = true;
         building.receiveShadow = true;
         buildingGroup.add(building);
+        
+        // Add detailed windows and architectural features
+        createEnhancedBuildingDetails(buildingGroup, width, height, depth);
+        
+        // Position buildings in a city-like pattern
+        const angle = (i / 20) * Math.PI * 2 + Math.PI / 8;
+        const distance = 120 + Math.random() * 150;
+        buildingGroup.position.x = Math.cos(angle) * distance;
+        buildingGroup.position.z = Math.sin(angle) * distance;
+        
+        scene.add(buildingGroup);
+    }
+}
 
 function createEnhancedBuildingDetails(buildingGroup, width, height, depth) {
     // Enhanced window materials with realistic glass
